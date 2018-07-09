@@ -1,0 +1,87 @@
+---
+title: "Untitled"
+author: "Pratik Gala"
+date: "26 March 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(MASS)
+#Initializing the number of points
+n_points <- 100
+
+#Creating Artificial Data
+sigma <- matrix(c(10,3,3,2,6,4),3,3)
+class1 <- mvrnorm(n = n_points, c(0, 0,0), sigma)
+
+sigma <- matrix(c(1,0.2,0.5,1,1.8,0.6),3,3)
+class2 <- mvrnorm(n = n_points, c(0, 4, 3), sigma)
+
+sigma <- matrix(c(1,.8,0.5,1,1.5,0.6),3,3)
+class3 <- mvrnorm(n = n_points, c(-5, -3,-1), sigma)
+
+#Adding a label column
+artificial_data <- data.frame(x = class1[,1], y=class1[,2],z=class1[,3], label = "a")
+artificial_data <- rbind(artificial_data, data.frame(x = class2[,1], y=class2[,2], z=class1[,3], label = "b"))
+artificial_data <- rbind(artificial_data, data.frame(x = class3[,1], y=class3[,2], z=class1[,3], label = "c"))
+
+
+#Random Sampling
+samplesize = 0.7 * nrow(artificial_data)
+#Set seed
+set.seed(80)
+index = sample( seq_len ( nrow ( artificial_data ) ), size = samplesize )
+
+#Training & Test Data
+df_train = artificial_data[index,]
+df_test = artificial_data[-index,]
+
+#Adding three new columns for each label with binary value
+df1_train <- cbind(df_train, df_train$label == 'a')
+df1_train <- cbind(df1_train, df1_train$label == 'b')
+df1_train <- cbind(df1_train, df1_train$label == 'c')
+names(df1_train) <- c('x','y','z','label','first','second','third')
+
+str(artificial_data)
+```
+
+
+```{r}
+str(df_train)
+
+
+library(neuralnet)
+set.seed(2)
+NN = neuralnet(first + second + third ~ x + y + z,data = df1_train, hidden = 3)
+plot(NN)
+```
+
+```{r}
+#prediction on test data
+mypredict1 <- neuralnet::compute(NN, df_test[-4])$net.result
+maxidx <- function(arr) {
+    return(which(arr == max(arr)))
+}
+idx <- apply(mypredict1, c(1), maxidx)
+prediction <- c('first', 'second', 'third')[idx]
+
+table(prediction, df_test$label)
+```
+
+```{r}
+#Prediction on complete data
+mypredict <- neuralnet::compute(NN, artificial_data[-4])$net.result
+maxidx <- function(arr) {
+    return(which(arr == max(arr)))
+}
+idx <- apply(mypredict, c(1), maxidx)
+prediction <- c('first', 'second', 'third')[idx]
+table(prediction, artificial_data$label)
+```
+
+
+
