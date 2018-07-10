@@ -1,0 +1,134 @@
+---
+title: "Untitled"
+author: "Pratik Gala"
+date: "23 March 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Reading the Data
+df = read.csv("D:\\Desktop\\as\\cereals.csv")
+
+#Random Sampling
+samplesize = 0.7 * nrow(df)
+#Set seed
+set.seed(80)
+index = sample( seq_len ( nrow ( df ) ), size = samplesize )
+#Training & Test Data
+df_train = df[index,]
+df_test = df[-index,]
+```
+
+```{r}
+#Scaled data for neural networks
+library(neuralnet)
+max = apply(df, 2, max) # 2 means columns
+min = apply(df, 2, min) # 2 means columns
+scaled = as.data.frame(scale(df, center = min, scale = max - min)) # scale = (x - min / scale)
+
+```
+
+```{r}
+#Creating train and test data for scaled datasets
+scaled_train = scaled[index,]
+scaled_test = scaled[-index,]
+
+#fitting nueral network
+set.seed(2)
+NN = neuralnet(rating ~ calories + protein + fat + sodium + fiber,data = scaled_train, hidden = 3, linear.output = TRUE)
+plot(NN)
+```
+
+
+
+```{r}
+library(dplyr)
+#Prediction using Neural Network
+predict_test = neuralnet::compute(NN, scaled_test[,c(1:5)])
+#Calculating actual values from scales
+predict_test_actual = predict_test$net.result * (max(df$rating) - min(df$rating)) + min(df$rating)
+
+
+df_test1 <- mutate(df_test, pred = predict_test_actual)
+
+#Plot actaul vs predicted
+plot(df_test$rating, predict_test_actual,col = "blue", pch = 16, ylab = "predicted rating NN", xlab = "real rating")
+#line (45deg)
+abline(0,1)
+```
+
+```{r}
+#Root mean square
+error <- df_test$rating - predict_test_actual
+# Function that returns Root Mean Squared Error
+rmse <- function(error)
+{
+    sqrt(mean(error^2))
+}
+rmse(error)
+```
+
+
+
+```{r}
+#RMSE.NN = (sum((df_test$rating - predict_test_actual)^2) / nrow(df_test)) ^ 0.5
+```
+
+```{r}
+#neural network on whole dataset
+NN1 = neuralnet(rating ~ calories + protein + fat + sodium + fiber,data = scaled, hidden = 3, linear.output = TRUE)
+plot(NN1)
+```
+
+
+
+```{r}
+#prediction on whole dataset
+pred_whole = neuralnet::compute(NN1, scaled[,c(1:5)])
+predict_whole_actual = pred_whole$net.result * (max(df$rating) - min(df$rating)) + min(df$rating)
+error_neural <- df$rating - predict_whole_actual
+rmse(error_neural)
+```
+
+
+```{r}
+library(rpart)
+fit1 <- rpart(rating ~ calories + protein + fat + sodium + fiber,data = df)
+
+predicted <- predict(fit1, newdata = df)
+error_rpart <- df$rating - predicted
+rmse(error_rpart)
+```
+
+
+```{r}
+library(randomForest)
+modelRandom <- randomForest(rating ~ calories + protein + fat + sodium + fiber,data = df, do.trace = TRUE, ntree =500)
+predictions_random <- predict(modelRandom,data = df)
+err_random <- df$rating - predictions_random
+rmse(err_random)
+```
+
+```{r}
+library(gbm)
+model_gbm_full <-  gbm(rating ~ calories + protein + fat + sodium + fiber,data = df, n.trees = 500, shrinkage = 0.01, interaction.depth = 4)
+predicted_gbm <- predict(model_gbm_full, newdata = df, type = "response",n.trees = 500)
+error_gbm_full <- df$rating - predicted_gbm
+rmse(error_gbm_full)
+
+```
+
+
+```{r}
+library(glmnet)
+model_glm = glm(formula = rating ~ calories + protein + fat + sodium + fiber,data = df)
+predicted_glm <- predict(model_glm, newdata = df)
+error_glm <- df$rating - predicted_glm
+rmse(error_glm)
+
+```
+
